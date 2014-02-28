@@ -253,4 +253,36 @@ describe("Testing cliargs library parsing commandlines", function()
     assert(type(err) == "string", "Expected an error string")
   end)
 
+  it("test with provided arg table", function()
+    arg = { "--compress=lzma" }
+    defaults = populate_optionals()
+    defaults.c = "bzip2"
+    defaults.compress = "bzip2"
+
+    result = cli:parse({ "--compress=bzip2" })
+
+    assert.are.same(result, defaults)
+  end)
+
+  it("allows multiple parse runs", function()
+    populate_required()
+    populate_optarg(1)
+    defaults = populate_optionals()
+    defaults.c = "bzip2"
+    defaults.compress = "bzip2"
+    defaults.INPUT = "some input"
+    defaults.OUTPUT = "some output"
+
+    result = cli:parse({ "--compress=bzip2", "some input", "some output" })
+    assert.are.same(result, defaults)
+
+    defaults.c = "gzip"
+    defaults.compress = "gzip"
+    defaults.INPUT = "other input"
+    defaults.OUTPUT = "./out"
+
+    result = cli:parse({ "other input" })
+    assert.are.same(result, defaults)
+  end)
+
 end)

@@ -96,24 +96,30 @@ local function disect(key)
 end
 
 
-function cli_error(msg, noprint)
-  local msg = cli.name .. ": error: " .. msg .. '; re-run with --help for usage.'
-  if not noprint then print(msg) end
-  return nil, msg
-end
-
 -- -------- --
 -- CLI Main --
 -- -------- --
 
-cli = {
-  name = "",
-  required = {},
-  optional = {},
-  optargument = {maxcount = 0},
-  colsz = { 0, 0 }, -- column width, help text. Set to 0 for auto detect
-  maxlabel = 0,
-}
+cli = { }
+cli.__index = cli
+
+local function new_cli(name)
+  return setmetatable({
+    name = name or "",
+    required = {},
+    optional = {},
+    optargument = {maxcount = 0},
+    colsz = { 0, 0 }, -- column width, help text. Set to 0 for auto detect
+    maxlabel = 0,
+  }, cli)
+end
+
+function cli:error(msg, noprint)
+  local msg = self.name .. ": error: " .. msg .. '; re-run with --help for usage.'
+  if not noprint then print(msg) end
+  return nil, msg
+end
+
 
 --- Assigns the name of the program which will be used for logging.
 function cli:set_name(name)
@@ -259,17 +265,21 @@ end
 --- *Aliases: `parse_args`*
 ---
 --- ### Parameters
---- 1. **noprint**: set this flag to prevent any information (error or help info) from being printed
---- 1. **dump**: set this flag to dump the parsed variables for debugging purposes, alternatively
+--- 1. **arg**: arguments to parse (optional, defaults to _G.arg)
+--- 2. **noprint**: set this flag to prevent any information (error or help info) from being printed
+--- 3. **dump**: set this flag to dump the parsed variables for debugging purposes, alternatively
 --- set the first option to --__DEBUG__ (option with 2 trailing and leading underscores) to dump at runtime.
 ---
 --- ### Returns
 --- 1. a table containing the keys specified when the arguments were defined along with the parsed values,
 --- or nil + error message (--help option is considered an error and returns nil + help message)
-function cli:parse(noprint, dump)
-  arg = arg or {}
-  local args = {}
-  for k,v in pairs(arg) do args[k] = v end  -- copy global args local
+function cli:parse(arg, noprint, dump)
+  if type(arg) ~= "table" then -- 2 arguments form call
+    noprint, dump, arg = arg, noprint, _G.arg or {}
+  end
+
+  local args = {} -- copy global args local as we will destroy table
+  for k,v in pairs(arg) do args[k] = v end
 
   -- starts with --help? display the help listing and abort!
   if args[1] and (args[1] == "--help" or args[1] == "-h") then
@@ -313,13 +323,13 @@ function cli:parse(noprint, dump)
 
     if not optkey or not entry then
       local option_type = optval and "option" or "flag"
-      return cli_error("unknown/bad " .. option_type .. "; " .. opt, noprint)
+      return self:error("unknown/bad " .. option_type .. "; " .. opt, noprint)
     end
 
     table.remove(args,1)
     if optpref == "-" then
       if optval then
-        return cli_error("short option does not allow value through '='; "..opt, noprint)
+        return self:error("short option does not allow value through '='; "..opt, noprint)
       end
       if entry.flag then
         optval = true
@@ -334,17 +344,17 @@ function cli:parse(noprint, dump)
       if entry then
         if entry.flag then
           if optval then
-            return cli_error("flag --" .. optkey .. " does not take a value", noprint)
+            return self:error("flag --" .. optkey .. " does not take a value", noprint)
           else
             optval = true
           end
         else
           if not optval then
-            return cli_error("option --" .. optkey .. " requires a value to be set", noprint)
+            return self:error("option --" .. optkey .. " requires a value to be set", noprint)
           end
         end
       else
-        return cli_error("unknown/bad flag; " .. opt, noprint)
+        return self:error("unknown/bad flag; " .. opt, noprint)
       end
     end
 
@@ -354,9 +364,9 @@ function cli:parse(noprint, dump)
   -- missing any required arguments, or too many?
   if #args < #self.required or #args > #self.required + self.optargument.maxcount then
     if self.optargument.maxcount > 0 then
-      return cli_error("bad number of arguments; " .. #self.required .."-" .. #self.required + self.optargument.maxcount .. " argument(s) must be specified, not " .. #args, noprint)
+      return self:error("bad number of arguments; " .. #self.required .."-" .. #self.required + self.optargument.maxcount .. " argument(s) must be specified, not " .. #args, noprint)
     else
-      return cli_error("bad number of arguments; " .. #self.required .. " argument(s) must be specified, not " .. #args, noprint)
+      return self:error("bad number of arguments; " .. #self.required .. " argument(s) must be specified, not " .. #args, noprint)
     end
   end
 
@@ -388,13 +398,16 @@ function cli:parse(noprint, dump)
   local results = {}
   if self.optargument.maxcount > 0 then
     results[self.optargument.key] = self.optargument.value
+    self.optargument.value = nil
   end
   for _, entry in pairs(self.required) do
     results[entry.key] = entry.value
+    entry.value = nil
   end
   for _, entry in pairs(self.optional) do
     if entry.key then results[entry.key] = entry.value end
     if entry.expanded_key then results[entry.expanded_key] = entry.value end
+    entry.value = entry.default
   end
 
   if dump then
@@ -439,7 +452,7 @@ function cli:parse(noprint, dump)
       end
     end
     print("\n===========================================\n\n")
-    return cli_error("commandline dump created as requested per '--__DUMP__' option", noprint)
+    return self:error("commandline dump created as requested per '--__DUMP__' option", noprint)
   end
 
   if not _TEST then
@@ -504,7 +517,7 @@ function cli:print_help(noprint)
   local msg = self:print_usage(true) .. "\n"
   local col1 = self.colsz[1]
   local col2 = self.colsz[2]
-  if col1 == 0 then col1 = cli.maxlabel end
+  if col1 == 0 then col1 = self.maxlabel end
   col1 = col1 + 3     --add margins
   if col2 == 0 then col2 = 72 - col1 end
   if col2 <10 then col2 = 10 end
@@ -553,22 +566,24 @@ function cli:set_colsz(key_cols, desc_cols)
   self.colsz = { key_cols or self.colsz[1], desc_cols or self.colsz[2] }
 end
 
-
--- finalize setup
-cli._COPYRIGHT   = "Copyright (C) 2011-2012 Ahmad Amireh"
-cli._LICENSE     = "The code is released under the MIT terms. Feel free to use it in both open and closed software as you please."
-cli._DESCRIPTION = "Commandline argument parser for Lua"
-cli._VERSION     = "cliargs 2.0-1"
-
 -- aliases
 cli.add_argument = cli.add_arg
 cli.add_option = cli.add_opt
 cli.parse_args = cli.parse    -- backward compatibility
 
+-- create module, which is a cli itself ()to use as a global cli
+local M = new_cli()
+M.new = new_cli
+
+M._COPYRIGHT   = "Copyright (C) 2011-2012 Ahmad Amireh"
+M._LICENSE     = "The code is released under the MIT terms. Feel free to use it in both open and closed software as you please."
+M._DESCRIPTION = "Commandline argument parser for Lua"
+M._VERSION     = "cliargs 2.0-1"
+
 -- test aliases for local functions
 if _TEST then
-  cli.split = split
-  cli.wordwrap = wordwrap
+  M.split = split
+  M.wordwrap = wordwrap
 end
 
-return cli
+return M

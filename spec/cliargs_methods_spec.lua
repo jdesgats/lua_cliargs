@@ -266,6 +266,22 @@ describe("Testing cliargs library methods/functions", function()
       
     end)
 
+    it("allows sparate parsers",function()
+      local p1 = cli.new("p1")
+      local p2 = cli.new("p2")
+      p1:add_flag("-a", "only for p1")
+      p2:add_flag("-b", "only for p2")
+      assert.are.equal(p1.optional[1].key, "a")
+      assert.are.equal(p2.optional[1].key, "b")
+    end)
+
+    it("allows global and indepentant parser", function()
+      cli:set_name("global-parser")
+      local indep = cli.new("independant-parser")
+      assert.is.equal(cli.name, "global-parser")
+      assert.is.equal(indep.name, "independant-parser")
+    end)
+
   end)   -- public functions
   
 end)
