@@ -124,6 +124,7 @@ end
 --- Assigns the name of the program which will be used for logging.
 function cli:set_name(name)
   self.name = name
+  return self
 end
 
 -- Used internally to lookup an entry using either its short or expanded keys
@@ -159,6 +160,7 @@ function cli:add_arg(key, desc)
 
   table.insert(self.required, { key = key, desc = desc, value = nil })
   if #key > self.maxlabel then self.maxlabel = #key end
+  return self
 end
 
 --- Defines an optional argument (or more than one).
@@ -186,6 +188,7 @@ function cli:optarg(key, desc, default, maxcount)
 
   self.optargument = { key = key, desc = desc, default = default, maxcount = maxcount, value = nil }
   if #key > self.maxlabel then self.maxlabel = #key end
+  return self
 end
 
 --- Defines an option.
@@ -247,7 +250,7 @@ function cli:add_opt(key, desc, default)
 
   table.insert(self.optional, entry)
   if #key > self.maxlabel then self.maxlabel = #key end
-
+  return self
 end
 
 --- Define a flag argument (on/off). This is a convenience helper for cli.add_opt().
@@ -257,7 +260,7 @@ end
 -- 1. **key**: the argument's key
 -- 1. **desc**: a description of the argument to be displayed in the help listing
 function cli:add_flag(key, desc)
-  self:add_opt(key, desc, false)
+  return self:add_opt(key, desc, false)
 end
 
 --- Parses the arguments found in #arg and returns a table with the populated values.
@@ -564,6 +567,7 @@ end
 --- 1. **desc_cols**: the number of columns assigned to the argument descriptions, set to 0 to auto set the total width to 72 (default: 0)
 function cli:set_colsz(key_cols, desc_cols)
   self.colsz = { key_cols or self.colsz[1], desc_cols or self.colsz[2] }
+  return self
 end
 
 -- aliases
