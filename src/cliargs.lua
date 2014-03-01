@@ -127,6 +127,10 @@ function cli:set_name(name)
   return self
 end
 
+function cli:set_description(description)
+  self.description = description
+end
+
 -- Used internally to lookup an entry using either its short or expanded keys
 function cli:__lookup(k, ek, t)
   t = t or self.optional
@@ -531,6 +535,12 @@ function cli:print_help(noprint)
       desc = desc:gsub("\n", "\n" .. string.rep(" ", col1)) -- add padding
 
       msg = msg .. label .. desc .. "\n"
+  end
+
+  if self.description then
+    local width = self.colsz[2]
+    if width == 0 then width = 72 end
+    msg = msg .. "\n" .. wordwrap(self.description, width) .. "\n"
   end
 
   if self.required[1] then
