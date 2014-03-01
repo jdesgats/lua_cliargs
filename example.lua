@@ -11,6 +11,8 @@ local cli = require "cliargs"
 
 cli:set_name("cli_example.lua")
 
+cli.description = "This is an example program which takes some parameters and try to parse them to show usage of lua_cliargs module. It does not do anything useful except that."
+
 -- Required arguments:
   cli:add_argument("INPUT", "path to the input file")
   -- cli:add_argument("OUTPUT", "path to the output file") -- Using an alias for add_argument
