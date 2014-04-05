@@ -129,6 +129,7 @@ end
 
 function cli:set_description(description)
   self.description = description
+  return self
 end
 
 -- Used internally to lookup an entry using either its short or expanded keys
